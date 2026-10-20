@@ -10,6 +10,7 @@ import {
   CheckCircle,
   Clock,
   Ban,
+  UserCheck,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -90,12 +91,20 @@ export default function StudentsPage() {
           { label: 'Students' },
         ]}
         actions={
-          <Button asChild className="flex items-center gap-1.5">
-            <Link to="/students/register">
-              <UserPlus className="h-4 w-4" />
-              <span>Register Student</span>
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" className="flex items-center gap-1.5">
+              <Link to="/students/approvals">
+                <UserCheck className="h-4 w-4 text-primary" />
+                <span>Pending Approvals</span>
+              </Link>
+            </Button>
+            <Button asChild className="flex items-center gap-1.5">
+              <Link to="/students/register">
+                <UserPlus className="h-4 w-4" />
+                <span>Register Student</span>
+              </Link>
+            </Button>
+          </div>
         }
       />
 

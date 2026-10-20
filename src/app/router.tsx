@@ -17,6 +17,7 @@ const SubjectsPage = lazy(() => import('@/features/academics/SubjectsPage'));
 const StudentsPage = lazy(() => import('@/features/students/StudentsPage'));
 const RegisterStudentPage = lazy(() => import('@/features/students/RegisterStudentPage'));
 const StudentDetailPage = lazy(() => import('@/features/students/StudentDetailPage'));
+const RegistrationApprovalsPage = lazy(() => import('@/features/students/RegistrationApprovalsPage'));
 
 // Teachers
 const TeachersPage = lazy(() => import('@/features/teachers/TeachersPage'));
@@ -109,6 +110,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={<LoadingScreen />}>
                 <RegisterStudentPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: '/students/approvals',
+            element: (
+              <Suspense fallback={<LoadingScreen />}>
+                <RegistrationApprovalsPage />
               </Suspense>
             ),
           },

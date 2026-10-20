@@ -129,12 +129,15 @@ export default function ExamsPage() {
         description: `Stored as ${data.original_filename || selectedFile?.name} (Storage ID: ${data.id.slice(0, 8)}).`,
       });
     },
-    onError: () => {
+    onError: (err: any) => {
       setFileUploadStatus('unsupported');
       toast({
         variant: 'destructive',
-        title: 'Upload Notice',
-        description: 'Document stored locally for review. Direct file-to-marks linking API is pending backend support.',
+        title: 'Upload Failed',
+        description:
+          err?.response?.data?.detail ||
+          err?.message ||
+          'Failed to upload document to storage. Please check file format and try again.',
       });
     },
   });

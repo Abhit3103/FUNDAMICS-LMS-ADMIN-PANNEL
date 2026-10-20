@@ -4,6 +4,7 @@ import { ShieldCheck, Search, Loader2, Clock } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -19,10 +20,12 @@ import type { AuditLog } from '@/types';
 
 export default function AuditLogsPage() {
   const [search, setSearch] = useState('');
+  const [limit] = useState(50);
+  const [offset, setOffset] = useState(0);
 
-  const { data: logs = [], isLoading } = useQuery({
-    queryKey: ['audit-logs'],
-    queryFn: () => auditApi.getLogs(),
+  const { data: logs = [], isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['audit-logs', limit, offset],
+    queryFn: () => auditApi.getLogs({ limit, offset }),
   });
 
   const filteredLogs = (Array.isArray(logs) ? logs : []).filter((log: AuditLog) =>
@@ -30,6 +33,18 @@ export default function AuditLogsPage() {
     (log.action && log.action.toLowerCase().includes(search.toLowerCase())) ||
     (log.entity_type && log.entity_type.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const handleNextPage = () => {
+    if (logs.length === limit) {
+      setOffset((prev) => prev + limit);
+    }
+  };
+
+  const handlePrevPage = () => {
+    setOffset((prev) => Math.max(0, prev - limit));
+  };
+
+  const currentPage = Math.floor(offset / limit) + 1;
 
   return (
     <div className="space-y-6">
@@ -53,10 +68,29 @@ export default function AuditLogsPage() {
             className="pl-9"
           />
         </div>
-        <div className="text-sm text-muted-foreground self-start sm:self-auto">
-          Total: <span className="font-semibold text-foreground">{logs.length}</span> recorded events
+        <div className="flex items-center gap-3 text-sm text-muted-foreground self-start sm:self-auto">
+          <span>
+            Page <span className="font-semibold text-foreground">{currentPage}</span>
+          </span>
+          <span className="text-border">|</span>
+          <span>
+            Showing <span className="font-semibold text-foreground">{logs.length}</span> events
+          </span>
         </div>
       </div>
+
+      {/* Error state */}
+      {isError && (
+        <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive flex items-center justify-between gap-3 text-sm">
+          <span>Failed to load audit logs: {(error as any)?.message || 'Network error'}</span>
+          <button
+            onClick={() => refetch()}
+            className="px-3 py-1 rounded-md border border-destructive/40 hover:bg-destructive/20 text-xs font-semibold"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Audit Logs Table */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
@@ -112,6 +146,31 @@ export default function AuditLogsPage() {
             </TableBody>
           </Table>
         )}
+      </div>
+
+      {/* Pagination Footer */}
+      <div className="flex items-center justify-between pt-2">
+        <p className="text-xs text-muted-foreground">
+          Showing offset {offset} to {offset + logs.length}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrevPage}
+            disabled={offset === 0 || isLoading}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNextPage}
+            disabled={logs.length < limit || isLoading}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );

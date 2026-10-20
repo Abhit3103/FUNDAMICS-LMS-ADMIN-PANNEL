@@ -83,7 +83,9 @@ export default function AttendanceImportPage() {
     onSuccess: (res) => {
       toast({
         title: 'Attendance Import Confirmed',
-        description: res.message || 'Records committed to database successfully.',
+        description:
+          res.message ||
+          `Successfully committed ${res.committed_rows ?? 'all'} attendance records to database.`,
       });
       navigate('/attendance/students');
     },

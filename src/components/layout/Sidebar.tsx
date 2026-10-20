@@ -16,6 +16,7 @@ import {
   X,
   School,
   UserSquare2,
+  UserCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
     children: [
       { label: 'All Students', href: '/students', icon: <Users className="h-4 w-4" /> },
       { label: 'Register Student', href: '/students/register', icon: <UserSquare2 className="h-4 w-4" /> },
+      { label: 'Approvals', href: '/students/approvals', icon: <UserCheck className="h-4 w-4" /> },
     ],
   },
   {

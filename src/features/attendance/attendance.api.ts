@@ -5,6 +5,7 @@ import type {
   SubmitAttendanceRequest,
   AttendanceSubmitResponse,
   AttendancePreviewResponse,
+  ConfirmAttendanceImportResponse,
   TeacherAttendanceDaySummary,
 } from '@/types';
 
@@ -120,15 +121,11 @@ export const attendanceApi = {
    * POST /admin/attendance/confirm/{import_id}
    * Confirm a previewed Excel import.
    */
-  confirmExcelImport: async (importId: string): Promise<AttendanceSubmitResponse> => {
-    const { data } = await apiClient.post<AttendanceSubmitResponse>(
+  confirmExcelImport: async (importId: string): Promise<ConfirmAttendanceImportResponse> => {
+    const { data } = await apiClient.post<ConfirmAttendanceImportResponse>(
       `/admin/attendance/confirm/${importId}`
     );
-    return {
-      ...data,
-      created: data.created_count ?? data.total_submitted ?? 0,
-      updated: data.updated_count ?? 0,
-    };
+    return data;
   },
 
   /**

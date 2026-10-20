@@ -84,3 +84,6 @@ export const studentsApi = {
     };
   },
 };
+
+export { registrationApprovalsApi } from './registration-approvals.api';
+

@@ -33,8 +33,9 @@ export const academicsApi = {
   },
 
   // ── Subjects ─────────────────────────────────────────────────────────────
-  getSubjects: async (): Promise<Subject[]> => {
-    const { data } = await apiClient.get<Subject[]>('/admin/subjects');
+  getSubjects: async (classId?: string): Promise<Subject[]> => {
+    const params = classId ? { class_id: classId } : undefined;
+    const { data } = await apiClient.get<Subject[]>('/admin/subjects', { params });
     return data;
   },
 

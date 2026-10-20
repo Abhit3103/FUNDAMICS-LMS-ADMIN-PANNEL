@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileText,
   Plus,
-  Download,
   Search,
   Upload,
   Loader2,
@@ -44,11 +43,24 @@ export default function NotesPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateNoteRequest>();
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateNoteRequest>();
+  const watchedClassId = watch('class_id');
 
   const { data: classes = [] } = useQuery({
     queryKey: ['academic-classes'],
     queryFn: () => academicsApi.getClasses(),
+  });
+
+  const { data: batches = [] } = useQuery({
+    queryKey: ['academic-batches', watchedClassId],
+    queryFn: () => academicsApi.getBatches(watchedClassId || undefined),
+    enabled: Boolean(watchedClassId),
+  });
+
+  const { data: subjects = [] } = useQuery({
+    queryKey: ['academic-subjects', watchedClassId],
+    queryFn: () => academicsApi.getSubjects(watchedClassId || undefined),
+    enabled: Boolean(watchedClassId),
   });
 
   const { data: notes = [], isLoading } = useQuery({
@@ -60,7 +72,7 @@ export default function NotesPage() {
     mutationFn: (payload: CreateNoteRequest) => notesApi.createNote(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes-list'] });
-      toast({ title: 'Study Material Published', description: 'Students can now view this material.' });
+      toast({ title: 'Study Material Published', description: 'Curriculum material securely stored and published.' });
       setIsDialogOpen(false);
       reset();
       setSelectedFile(null);
@@ -68,8 +80,8 @@ export default function NotesPage() {
     onError: (err: any) => {
       toast({
         variant: 'destructive',
-        title: 'Failed to upload material',
-        description: err?.response?.data?.detail || 'An unexpected error occurred.',
+        title: 'Failed to publish material',
+        description: err?.response?.data?.detail || err?.message || 'An unexpected error occurred.',
       });
     },
   });
@@ -80,25 +92,34 @@ export default function NotesPage() {
   );
 
   const onSubmit = async (data: CreateNoteRequest) => {
+    if (!selectedFile) {
+      toast({
+        variant: 'destructive',
+        title: 'File Required',
+        description: 'Please select a document or PDF file to attach to this study material.',
+      });
+      return;
+    }
+
     try {
-      let fileUrl = '';
-      if (selectedFile) {
-        setUploadingFile(true);
-        const fileRes = await notesApi.uploadFile(selectedFile);
-        fileUrl = fileRes.file_url;
-        setUploadingFile(false);
-      }
+      setUploadingFile(true);
+      const fileRes = await notesApi.uploadFile(selectedFile);
+      setUploadingFile(false);
+
       createMutation.mutate({
-        ...data,
-        file_url: fileUrl || undefined,
-        is_published: true,
+        title: data.title,
+        description: data.description || undefined,
+        class_id: data.class_id,
+        batch_id: data.batch_id || undefined,
+        subject_id: data.subject_id,
+        file_id: fileRes.id,
       });
     } catch (err: any) {
       setUploadingFile(false);
       toast({
         variant: 'destructive',
         title: 'File Upload Failed',
-        description: err?.message || 'Could not upload attachment.',
+        description: err?.response?.data?.detail || err?.message || 'Could not upload attachment.',
       });
     }
   };
@@ -169,10 +190,17 @@ export default function NotesPage() {
             return (
               <Card key={note.id} className="flex flex-col justify-between hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {assignedClass?.name || 'All Classes'}
-                    </Badge>
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="outline" className="text-xs font-medium">
+                        {assignedClass?.name || 'All Classes'}
+                      </Badge>
+                      {note.subject_name && (
+                        <Badge variant="secondary" className="text-xs">
+                          {note.subject_name}
+                        </Badge>
+                      )}
+                    </div>
                     <Badge variant={note.is_published ? 'success' : 'secondary'}>
                       {note.is_published ? 'Published' : 'Draft'}
                     </Badge>
@@ -187,18 +215,17 @@ export default function NotesPage() {
                 <CardContent className="pt-0">
                   <div className="pt-3 border-t flex items-center justify-between text-xs text-muted-foreground">
                     <span>{formatDate(note.created_at)}</span>
-                    {note.file_url ? (
-                      <a
-                        href={note.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 text-primary hover:underline font-medium"
-                      >
-                        <Download className="h-3.5 w-3.5" /> Download
-                      </a>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">PDF Document</span>
-                    )}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <FileText className="h-3.5 w-3.5 text-primary" />
+                      <span className="font-medium truncate max-w-[140px]" title={note.original_filename || note.file_name || 'Secure Document'}>
+                        {note.original_filename || note.file_name || 'Secure Attachment'}
+                      </span>
+                      {note.file_size_bytes || note.file_size ? (
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          ({(((note.file_size_bytes || note.file_size || 0) / 1024)).toFixed(0)} KB)
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -230,17 +257,65 @@ export default function NotesPage() {
               )}
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="class_id">Target Class *</Label>
+                <select
+                  id="class_id"
+                  {...register('class_id', { required: 'Please select class' })}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                >
+                  <option value="">Select Class...</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.class_id && (
+                  <p className="text-xs text-destructive">{errors.class_id.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="subject_id">Subject *</Label>
+                <select
+                  id="subject_id"
+                  {...register('subject_id', { required: 'Please select a subject' })}
+                  disabled={!watchedClassId || subjects.length === 0}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                >
+                  <option value="">
+                    {!watchedClassId
+                      ? 'Select class first...'
+                      : subjects.length === 0
+                      ? 'No subjects for class'
+                      : 'Select Subject...'}
+                  </option>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.subject_id && (
+                  <p className="text-xs text-destructive">{errors.subject_id.message}</p>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-1.5">
-              <Label htmlFor="class_id">Target Class *</Label>
+              <Label htmlFor="batch_id">Target Batch (Optional)</Label>
               <select
-                id="class_id"
-                {...register('class_id', { required: 'Please select class' })}
+                id="batch_id"
+                {...register('batch_id')}
+                disabled={!watchedClassId || batches.length === 0}
                 className="w-full h-10 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
               >
-                <option value="">Select Class...</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
+                <option value="">All Batches in Class</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
                   </option>
                 ))}
               </select>

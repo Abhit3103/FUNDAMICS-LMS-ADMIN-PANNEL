@@ -1,36 +1,39 @@
 import apiClient from '@/lib/api-client';
 import type {
   Exam,
+  ExamDetailResponse,
   CreateExamRequest,
   BulkEnterMarksRequest,
   PublishExamResultsRequest,
 } from '@/types';
 
-// In-memory fallback cache for exams created during the session
-let _sessionExams: Exam[] = [];
-
 export const resultsApi = {
   /**
    * GET /admin/exams
-   * List available exams filtered by class or batch.
+   * List available exams directly from live backend with optional class/batch/status filtering.
    */
-  getExams: async (params?: { class_id?: string; batch_id?: string; status?: string }): Promise<Exam[]> => {
-    try {
-      const { data } = await apiClient.get<Exam[]>('/admin/exams', { params });
-      return data.map((e) => ({
-        ...e,
-        exam_date: (e as any).date || (e as any).exam_date,
-      }));
-    } catch {
-      let exams = [..._sessionExams];
-      if (params?.class_id) {
-        exams = exams.filter((e) => e.class_id === params.class_id);
-      }
-      if (params?.batch_id) {
-        exams = exams.filter((e) => !e.batch_id || e.batch_id === params.batch_id);
-      }
-      return exams;
-    }
+  getExams: async (params?: {
+    class_id?: string;
+    batch_id?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Exam[]> => {
+    const { data } = await apiClient.get<Exam[]>('/admin/exams', { params });
+    const exams = Array.isArray(data) ? data : [];
+    return exams.map((e) => ({
+      ...e,
+      exam_date: (e as any).date || (e as any).exam_date,
+    }));
+  },
+
+  /**
+   * GET /admin/exams/{exam_id}
+   * Retrieve full details of an exam including student performance records.
+   */
+  getExamDetail: async (examId: string): Promise<ExamDetailResponse> => {
+    const { data } = await apiClient.get<ExamDetailResponse>(`/admin/exams/${examId}`);
+    return data;
   },
 
   /**
@@ -45,15 +48,10 @@ export const resultsApi = {
       date: payload.date,
     });
 
-    const created: Exam = {
+    return {
       ...data,
       exam_date: data.date,
     };
-
-    // Cache created exam in session
-    _sessionExams = [created, ..._sessionExams.filter((e) => e.id !== created.id)];
-
-    return created;
   },
 
   /**

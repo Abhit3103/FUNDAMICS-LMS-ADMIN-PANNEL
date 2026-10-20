@@ -18,7 +18,8 @@ import {
 import { useAuth } from '@/features/auth/auth.context';
 import { settingsApi } from '@/features/settings/settings.api';
 import { calendarApi } from '@/features/calendar/calendar.api';
-import { studentsApi } from '@/features/students/students.api';
+import { registrationApprovalsApi } from '@/features/students/registration-approvals.api';
+import { RegistrationApprovalsList } from '@/features/students/RegistrationApprovalsList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,17 +32,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
 import { getInitials } from '@/lib/utils';
-import type { Student } from '@/types';
 
 interface TopBarProps {
   onToggleSidebar: () => void;
@@ -84,22 +76,12 @@ export function TopBar({ onToggleSidebar, onOpenMobileSidebar }: TopBarProps) {
     }
   });
 
-  // 2. Pending Students Query for Approvals Badge
-  const { data: studentsData = [] } = useQuery({
-    queryKey: ['students-approvals-check'],
-    queryFn: () => studentsApi.getStudents({ size: 100 }),
+  // 2. Pending Student Registrations Query for Approvals Badge & Live Queue
+  const { data: pendingRegistrations = [] } = useQuery({
+    queryKey: ['pending-registrations'],
+    queryFn: () => registrationApprovalsApi.getPendingRegistrations({ limit: 100 }),
     refetchInterval: 30000,
   });
-
-  const allStudents: Student[] = Array.isArray(studentsData)
-    ? studentsData
-    : (studentsData as any)?.items ?? [];
-
-  const pendingStudents = allStudents.filter(
-    (s) =>
-      String(s.status || '').toUpperCase() === 'PENDING_VERIFICATION' ||
-      String(s.account_status || '').toUpperCase() === 'PENDING_VERIFICATION'
-  );
 
   // Update Settings & Calendar Mutation
   const applyOperationsMutation = useMutation({
@@ -265,9 +247,9 @@ export function TopBar({ onToggleSidebar, onOpenMobileSidebar }: TopBarProps) {
           >
             <UserCheck className="h-4 w-4 text-primary" />
             <span className="hidden md:inline">Approvals</span>
-            {pendingStudents.length > 0 ? (
+            {pendingRegistrations.length > 0 ? (
               <Badge variant="destructive" className="h-5 px-1.5 text-[10px] font-bold">
-                {pendingStudents.length}
+                {pendingRegistrations.length}
               </Badge>
             ) : (
               <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
@@ -573,95 +555,22 @@ export function TopBar({ onToggleSidebar, onOpenMobileSidebar }: TopBarProps) {
         </DialogContent>
       </Dialog>
 
-      {/* PHASE 3 & 10: Student Registration Approvals Modal */}
+      {/* PHASE 3A: Student Registration Approvals Modal */}
       <Dialog open={approvalsOpen} onOpenChange={setApprovalsOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCheck className="h-5 w-5 text-primary" />
-              Student Registration Approvals ({pendingStudents.length})
+              Student Registration Approvals ({pendingRegistrations.length})
             </DialogTitle>
             <DialogDescription>
-              Review pending registrations submitted by students awaiting account verification.
+              Review pending registrations submitted by students awaiting account verification and administrative approval.
             </DialogDescription>
           </DialogHeader>
 
-          {/* Backend Policy Notice */}
-          <div className="rounded-lg border border-amber-200 bg-amber-50/70 dark:bg-amber-950/20 dark:border-amber-900 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
-            <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <p className="font-semibold">Student Verification Architecture</p>
-              <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
-                Self-registered student accounts undergo token-based email activation. A direct administrative mutation route (<code className="font-mono bg-amber-100 dark:bg-amber-900/60 px-1 py-0.2 rounded">POST /admin/students/{'{id}'}/approve</code>) is documented as pending backend implementation.
-              </p>
-            </div>
+          <div className="py-2">
+            <RegistrationApprovalsList onSuccessDecision={() => {}} />
           </div>
-
-          {pendingStudents.length === 0 ? (
-            <div className="py-8 text-center space-y-2">
-              <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
-              <p className="text-sm font-medium text-foreground">No Pending Approvals</p>
-              <p className="text-xs text-muted-foreground">
-                All registered students are currently active or fully verified.
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-lg border overflow-hidden max-h-[300px] overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Admission Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pendingStudents.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell>
-                        <div className="space-y-0.5">
-                          <p className="font-medium text-xs text-foreground">
-                            {student.full_name || student.name}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">{student.email}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted">
-                          {student.student_code || student.id.slice(0, 8)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {student.admission_date || '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="warning" className="text-[10px]">
-                          Pending Verification
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-7 px-2"
-                          onClick={() => {
-                            toast({
-                              title: 'Review Mode',
-                              description: `Verification link sent to ${student.email}. Direct admin approval route is pending backend API.`,
-                            });
-                          }}
-                        >
-                          Review
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
 
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setApprovalsOpen(false)}>

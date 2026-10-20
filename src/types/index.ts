@@ -23,7 +23,13 @@ export interface RefreshRequest {
 }
 
 export type UserRole = 'admin' | 'teacher' | 'student' | 'ADMIN' | 'TEACHER' | 'STUDENT';
-export type UserStatus = 'ACTIVE' | 'PENDING_VERIFICATION' | 'SUSPENDED' | 'INACTIVE';
+export type UserStatus =
+  | 'ACTIVE'
+  | 'PENDING_VERIFICATION'
+  | 'PENDING_APPROVAL'
+  | 'REJECTED'
+  | 'SUSPENDED'
+  | 'INACTIVE';
 
 export interface AuthUser {
   id: string;
@@ -152,6 +158,44 @@ export interface CreateStudentRequest {
   admission_date: string;
   phone?: string | null;
   password?: string | null;
+}
+
+// ─── Registration Approvals (Phase 3A) ────────────────────────────────────────
+
+export interface PendingRegistration {
+  user_id: string;
+  student_id?: string | null;
+  name: string;
+  email: string;
+  phone?: string | null;
+  student_code?: string | null;
+  class_id?: string | null;
+  class_name?: string | null;
+  batch_id?: string | null;
+  batch_name?: string | null;
+  status: UserStatus | string;
+  email_verified: boolean;
+  created_at: string;
+}
+
+export type PendingRegistrationResponse = PendingRegistration;
+
+export interface PendingRegistrationsParams {
+  limit?: number;
+  offset?: number;
+}
+
+export interface ApproveRegistrationRequest {
+  remarks?: string | null;
+}
+
+export interface RejectRegistrationRequest {
+  reason: string;
+}
+
+export interface RejectRegistrationResponse {
+  success: boolean;
+  message: string;
 }
 
 // ─── Teachers ─────────────────────────────────────────────────────────────────
@@ -284,6 +328,13 @@ export interface AttendancePreviewResponse {
   preview?: AttendanceImportPreviewRow[]; // alias
 }
 
+export interface ConfirmAttendanceImportResponse {
+  import_id: string;
+  status: string;
+  committed_rows: number;
+  message: string;
+}
+
 // ─── Teacher Attendance ───────────────────────────────────────────────────────
 
 export interface TeacherAttendanceRecord {
@@ -310,7 +361,9 @@ export interface TeacherAttendanceDaySummary {
 export interface Exam {
   id: string;
   class_id: string;
+  class_name?: string | null;
   batch_id?: string | null;
+  batch_name?: string | null;
   name: string;
   date: string;
   status: string;
@@ -318,7 +371,43 @@ export interface Exam {
   max_marks?: number;
   passing_marks?: number;
   is_published?: boolean;
+  total_students?: number;
+  results_count?: number;
   created_at?: string;
+}
+
+export type ExamResponse = Exam;
+
+export interface ResultResponse {
+  id: string;
+  exam_id: string;
+  exam_name?: string | null;
+  student_id: string;
+  student_name?: string | null;
+  student_code?: string | null;
+  subject_id: string;
+  subject_name?: string | null;
+  marks_obtained: number;
+  max_marks: number;
+  percentage: number;
+  grade?: string | null;
+  remarks?: string | null;
+  published_at?: string | null;
+  document_file_id?: string | null;
+  document_filename?: string | null;
+  has_document?: boolean;
+}
+
+export interface ExamDetailResponse {
+  id: string;
+  class_id: string;
+  class_name?: string | null;
+  batch_id?: string | null;
+  batch_name?: string | null;
+  name: string;
+  date: string;
+  status: string;
+  results: ResultResponse[];
 }
 
 export interface CreateExamRequest {
@@ -330,8 +419,10 @@ export interface CreateExamRequest {
 
 export interface EnterMarksItem {
   student_id: string;
+  subject_id?: string | null;
   marks_obtained: number;
   max_marks: number;
+  grade?: string | null;
   remarks?: string | null;
   file_id?: string | null;
   document_file_id?: string | null;
@@ -352,23 +443,33 @@ export interface PublishExamResultsRequest {
 export interface Note {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   class_id: string;
-  batch_id?: string;
-  file_url?: string;
-  file_name?: string;
-  file_size?: number;
-  is_published: boolean;
+  batch_id?: string | null;
+  subject_id?: string;
+  subject_name?: string | null;
+  file_id?: string;
+  original_filename?: string | null;
+  file_size_bytes?: number | null;
+  status?: string;
+  file_url?: string; // alias
+  file_name?: string; // alias
+  file_size?: number; // alias
+  is_published?: boolean;
   created_at: string;
   created_by?: string;
 }
 
+export type NoteResponse = Note;
+
 export interface CreateNoteRequest {
   title: string;
-  description?: string;
+  description?: string | null;
   class_id: string;
-  batch_id?: string;
-  file_url?: string;
+  batch_id?: string | null;
+  subject_id?: string;
+  file_id?: string;
+  file_url?: string; // legacy alias
   is_published?: boolean;
 }
 
@@ -423,6 +524,13 @@ export interface AuditLog {
   ip_address?: string;
   user_agent?: string;
   created_at: string;
+}
+
+export interface AuditLogParams {
+  limit?: number;
+  offset?: number;
+  page?: number;
+  size?: number;
 }
 
 // ─── Institute Settings ───────────────────────────────────────────────────────
