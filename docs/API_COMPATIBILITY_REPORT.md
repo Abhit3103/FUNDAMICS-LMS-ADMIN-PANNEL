@@ -42,9 +42,9 @@
 
 ---
 
-## 2. Missing Backend Endpoints & Required Schema Additions
+## 2. Backend Endpoint Gaps & Required Schema Additions
 
-The following endpoints and capabilities are **NOT present** in the deployed backend contract. Per instructions, these are explicitly documented here and the frontend will NOT fake successful API calls for them:
+The following sections summarize backend compatibility gaps recorded in this report. Notice management has since been added to the live API contract, as documented in §2.2.
 
 ### 2.1 Student Self-Registration Approvals Flow
 - **Missing Endpoints:**
@@ -55,13 +55,8 @@ The following endpoints and capabilities are **NOT present** in the deployed bac
 - **Frontend Handling:** The frontend displays pending registrations identified from `GET /admin/students` with `status === "PENDING_VERIFICATION"`, shows their registration details in the top navigation badge/dialog, and clearly indicates that backend approval mutation endpoints are pending implementation.
 
 ### 2.2 Notice & Announcement Management
-- **Missing Endpoints:**
-  - `GET /api/v1/admin/notices`
-  - `POST /api/v1/admin/notices`
-  - `PATCH /api/v1/admin/notices/{id}`
-  - `DELETE /api/v1/admin/notices/{id}`
-- **Current Backend Reality:** No announcement or notice endpoints exist in `/api/v1`.
-- **Frontend Handling:** A dedicated Notices dialog/panel is integrated in the top navigation bar with standard coaching notices UI, displaying system notices and clearly marking publication as read-only until the backend notice API is deployed.
+- **Available Endpoints:** `live-openapi.json` (API v1.4.0) defines `GET` and `POST /api/v1/admin/notices`, plus `GET`, `PATCH`, and `DELETE /api/v1/admin/notices/{notice_id}`.
+- **Frontend Handling:** The Notifications page creates notices through `POST /admin/notices` and lists notices through `GET /admin/notices`; the top-navigation Notices dialog also displays the live notice list. Requests use the configured `/api/v1` API base URL.
 
 ### 2.3 Individual Student Result Uploads
 - **Missing Endpoints:**

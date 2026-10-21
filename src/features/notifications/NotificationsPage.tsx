@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, Send } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,60 +8,59 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
+import { noticesApi, noticesQueryKey } from './notices.api';
 
 export default function NotificationsPage() {
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [recipient, setRecipient] = useState('ALL');
-  const [sending, setSending] = useState(false);
 
-  const mockBroadcasts = [
-    {
-      id: '1',
-      title: 'Weekly Test Series Rescheduled',
-      target: 'Class 12 - NEET Batch',
-      sent_at: '2026-10-10 14:30',
-      status: 'Delivered',
-    },
-    {
-      id: '2',
-      title: 'Biometric System Routine Calibration',
-      target: 'Faculty & Teachers',
-      sent_at: '2026-10-08 09:15',
-      status: 'Delivered',
-    },
-    {
-      id: '3',
-      title: 'Diwali Break Schedule Announcement',
-      target: 'All Students & Parents',
-      sent_at: '2026-10-05 18:00',
-      status: 'Delivered',
-    },
-  ];
+  const {
+    data: notices = [],
+    isLoading: isLoadingNotices,
+    isError: isNoticesError,
+    refetch: refetchNotices,
+  } = useQuery({
+    queryKey: noticesQueryKey,
+    queryFn: noticesApi.getNotices,
+  });
 
-  const handleBroadcast = (e: React.FormEvent) => {
+  const createNoticeMutation = useMutation({
+    mutationFn: noticesApi.createNotice,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: noticesQueryKey });
+      toast({ title: 'Notice Created', description: 'The notice was published successfully.' });
+      setTitle('');
+      setMessage('');
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to create notice',
+        description: error.message || 'An unexpected error occurred.',
+      });
+    },
+  });
+
+  const handleCreateNotice = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!title.trim() || !message.trim()) {
       toast({ variant: 'destructive', title: 'Please provide both title and announcement body.' });
       return;
     }
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      toast({
-        title: 'Broadcast Dispatched',
-        description: `Announcement "${title}" broadcasted to ${recipient.toLowerCase()} recipients.`,
-      });
-      setTitle('');
-      setMessage('');
-    }, 600);
+    createNoticeMutation.mutate({
+      title: title.trim(),
+      content: message.trim(),
+      target_audience: recipient,
+    });
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Notification & Broadcast Hub"
-        description="Send push alerts, SMS announcements, and portal notifications to students and faculty."
+        title="Notice Management"
+        description="Create and manage notices for students, faculty, and guardians."
         breadcrumbs={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Notifications' },
@@ -74,14 +74,14 @@ export default function NotificationsPage() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Send className="h-5 w-5 text-primary" />
-                Dispatch New Broadcast
+                Create Notice
               </CardTitle>
               <CardDescription>
-                Deliver important schedule updates or exam reminders immediately.
+                Publish an important update to the selected audience.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleBroadcast} className="space-y-4">
+              <form onSubmit={handleCreateNotice} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Audience</label>
                   <select
@@ -97,7 +97,7 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Notification Title</label>
+                  <label className="text-sm font-medium">Notice Title</label>
                   <Input
                     placeholder="e.g. Schedule Update for Physics Advanced"
                     value={title}
@@ -106,7 +106,7 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Message Content</label>
+                  <label className="text-sm font-medium">Notice Content</label>
                   <Textarea
                     placeholder="Enter detailed message to be delivered via portal push..."
                     rows={4}
@@ -116,9 +116,9 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <Button type="submit" disabled={sending} className="min-w-[130px]">
+                  <Button type="submit" disabled={createNoticeMutation.isPending} className="min-w-[130px]">
                     <Send className="h-4 w-4 mr-2" />
-                    {sending ? 'Sending...' : 'Send Broadcast'}
+                    {createNoticeMutation.isPending ? 'Publishing...' : 'Publish Notice'}
                   </Button>
                 </div>
               </form>
@@ -126,28 +126,47 @@ export default function NotificationsPage() {
           </Card>
         </div>
 
-        {/* Right Column: Recent Dispatches */}
+        {/* Right Column: Notice Management */}
         <div>
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Bell className="h-4 w-4 text-primary" />
-                Recent Broadcasts
+                Notice Management
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {mockBroadcasts.map((b) => (
-                <div key={b.id} className="p-3 rounded-lg border bg-muted/30 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-foreground line-clamp-1">{b.title}</p>
-                    <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                      {b.status}
-                    </Badge>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                {isLoadingNotices ? (
+                  <p className="text-xs text-muted-foreground">Loading notices...</p>
+                ) : isNoticesError ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-destructive">Unable to load notices.</p>
+                    <Button type="button" variant="outline" size="sm" onClick={() => refetchNotices()}>
+                      Try again
+                    </Button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Target: {b.target}</p>
-                  <p className="text-[10px] text-muted-foreground/80">{b.sent_at}</p>
-                </div>
-              ))}
+                ) : notices.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No notices have been published.</p>
+                ) : notices.map((notice) => (
+                  <div key={notice.id} className="p-3 rounded-lg border bg-muted/30 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-foreground">{notice.title}</p>
+                      <Badge
+                        variant={notice.is_active ? 'success' : 'outline'}
+                        className="text-[10px] px-1.5 py-0 shrink-0"
+                      >
+                        {notice.is_active ? 'PUBLISHED' : 'INACTIVE'}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">{notice.content}</p>
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground/80">
+                      <span>Target: {notice.target_audience}</span>
+                      <span>{new Date(notice.published_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>

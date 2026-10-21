@@ -13,12 +13,12 @@ import {
   Radio,
   UserCheck,
   Loader2,
-  Info,
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/auth.context';
 import { settingsApi } from '@/features/settings/settings.api';
 import { calendarApi } from '@/features/calendar/calendar.api';
 import { registrationApprovalsApi } from '@/features/students/registration-approvals.api';
+import { noticesApi, noticesQueryKey } from '@/features/notifications/notices.api';
 import { RegistrationApprovalsList } from '@/features/students/RegistrationApprovalsList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,6 +80,16 @@ export function TopBar({ onToggleSidebar, onOpenMobileSidebar }: TopBarProps) {
   const { data: pendingRegistrations = [] } = useQuery({
     queryKey: ['pending-registrations'],
     queryFn: () => registrationApprovalsApi.getPendingRegistrations({ limit: 100 }),
+    refetchInterval: 30000,
+  });
+
+  const {
+    data: notices = [],
+    isLoading: isLoadingNotices,
+    isError: isNoticesError,
+  } = useQuery({
+    queryKey: noticesQueryKey,
+    queryFn: noticesApi.getNotices,
     refetchInterval: 30000,
   });
 
@@ -151,34 +161,6 @@ export function TopBar({ onToggleSidebar, onOpenMobileSidebar }: TopBarProps) {
       setLoggingOut(false);
     }
   }
-
-  // Pre-configured system notices
-  const systemNotices = [
-    {
-      id: '1',
-      title: 'Upcoming Term Assessment Scheduled',
-      message: 'Class 10 and Class 12 unit tests begin next Monday. Hall arrangements published.',
-      date: 'Oct 14, 2026',
-      status: 'PUBLISHED',
-      target: 'All Students & Staff',
-    },
-    {
-      id: '2',
-      title: 'Automated Attendance Cutoff Rule Active',
-      message: 'Daily cutoff is set to 09:30 AM. Biometric punches after cutoff are logged as LATE.',
-      date: 'Oct 12, 2026',
-      status: 'PUBLISHED',
-      target: 'Faculty Members',
-    },
-    {
-      id: '3',
-      title: 'Diwali Break Notice (Preliminary)',
-      message: 'Coaching centre holiday calendar updated for the upcoming festival break.',
-      date: 'Oct 10, 2026',
-      status: 'DRAFT',
-      target: 'Coaching Wide',
-    },
-  ];
 
   return (
     <>
@@ -511,37 +493,34 @@ export function TopBar({ onToggleSidebar, onOpenMobileSidebar }: TopBarProps) {
               Coaching Notices & Announcements
             </DialogTitle>
             <DialogDescription>
-              Active broadcasts, scheduled student notifications, and coaching alerts.
+              Published notices and coaching announcements.
             </DialogDescription>
           </DialogHeader>
 
-          {/* Backend API Notice */}
-          <div className="rounded-lg border border-blue-200 bg-blue-50/70 dark:bg-blue-950/20 dark:border-blue-900 p-3 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-2.5">
-            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <p className="font-semibold">Notice Management Integration</p>
-              <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80">
-                Notice creation endpoint (<code className="font-mono bg-blue-100 dark:bg-blue-900/60 px-1 py-0.2 rounded">/api/v1/admin/notices</code>) is pending backend deployment. Below notices reflect currently active coaching bulletins.
-              </p>
-            </div>
-          </div>
-
           <div className="space-y-3 py-1 max-h-[360px] overflow-y-auto">
-            {systemNotices.map((notice) => (
+            {isLoadingNotices ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">Loading notices...</p>
+            ) : isNoticesError ? (
+              <p className="py-4 text-center text-xs text-destructive">Unable to load notices.</p>
+            ) : notices.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                No notices have been published.
+              </p>
+            ) : notices.map((notice) => (
               <div key={notice.id} className="p-3 rounded-lg border bg-card space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-semibold text-foreground">{notice.title}</h4>
                   <Badge
-                    variant={notice.status === 'PUBLISHED' ? 'success' : 'outline'}
+                    variant={notice.is_active ? 'success' : 'outline'}
                     className="text-[10px] h-4.5"
                   >
-                    {notice.status}
+                    {notice.is_active ? 'PUBLISHED' : 'INACTIVE'}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">{notice.message}</p>
+                <p className="text-xs text-muted-foreground">{notice.content}</p>
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t">
-                  <span>Target: {notice.target}</span>
-                  <span>{notice.date}</span>
+                  <span>Target: {notice.target_audience}</span>
+                  <span>{new Date(notice.published_at).toLocaleDateString()}</span>
                 </div>
               </div>
             ))}
